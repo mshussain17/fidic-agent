@@ -32,7 +32,7 @@ def process_file(uploaded_file):
 
 # Create the Streamlit interface
 def main():
-    st.title('Document Upload, Save, and Output Display')
+    st.title('FIDIC redbook document compliance analyzer')
 
     uploaded_file = st.file_uploader("Choose a file", type=["pdf"])
 

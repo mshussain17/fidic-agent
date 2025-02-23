@@ -241,7 +241,8 @@ async def ask_ai(file_path):
             or the answer is ambiguous simply output "No deviation found" and nothing else.
             Here is the FIDIC document snippet: '''{correct_answer}'''.
             If the data source answer is similar to the correct answer simply output 
-            "No deviation found" and nothing else.
+            "No deviation found" and nothing else. Do not use the word "answer" or words "correct answer"
+            in your response. Just highlight the deviation.
             """,
             messages=[{"role": "user", "content": "Data source answer: " + answer}]
         )
