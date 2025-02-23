@@ -10,4 +10,4 @@ fastapi
 cohere==5.13.12
 anthropic==0.46.0
 llama_index
-faiss-cpu==1.7.2
+faiss-gpu
