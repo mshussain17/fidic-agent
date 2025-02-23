@@ -1,0 +1,10 @@
+aiohttp
+aiofiles
+langchain_core==0.2.38
+llama_parse==0.4.4
+langchain_openai==0.1.23
+langchain_community==0.2.16
+langchain==0.2.16
+uvicorn
+fastapi
+cohere==5.13.12
