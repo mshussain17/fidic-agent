@@ -8,3 +8,4 @@ langchain==0.2.16
 uvicorn
 fastapi
 cohere==5.13.12
+anthropic==0.46.0
