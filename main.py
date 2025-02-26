@@ -21,6 +21,8 @@ import cohere
 import os
 from dotenv import load_dotenv
 load_dotenv()
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 nest_asyncio.apply()
 
 # app = FastAPI()
@@ -162,9 +164,12 @@ def get_answer(compression_retriever, query):
     cost = (input_tokens*(0.25/1000000))+ (output_tokens*(1.25/1000000))
     return ans, cost
 
+def process_question(compression_retriever, question):
+    answer, cost = get_answer(compression_retriever, question)
+    return answer, cost
+
 # @app.post("/query")
 async def ask_ai(file_path):
-    start_time = time.time()
     vectorstore, document_description = await create_vectorstore(file_path)
     retrieval = vectorstore.as_retriever(search_kwargs = {'k': 40})
     cohere_rerank = CohereRerank(cohere_api_key=cohere_api,model="rerank-multilingual-v3.0",top_n=3)
@@ -211,25 +216,33 @@ async def ask_ai(file_path):
     print(shortlisted_questions)
     print(len(shortlisted_questions))
 
+    start_time = time.time()
     answers = []
-    for question in shortlisted_questions:
-        answer, cost = get_answer(compression_retriever, question)
-        total_cost = total_cost + cost
-        answers.append(answer)
+    # for question in shortlisted_questions:
+    #     answer, cost = get_answer(compression_retriever, question)
+    #     total_cost = total_cost + cost
+    #     answers.append(answer)
     
+    process_with_retriever = partial(process_question, compression_retriever)
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(process_with_retriever, shortlisted_questions))
+    answers, costs = zip(*results)
+    answers = list(answers)
+    total_cost = sum(costs)
     print("answers:")
     # # print(answers)
     ans = ""
     count = 1
-    for i in range(0, len(answers)):
-        # try:
+    def process_deviation(i):
+        """Processes a single question-answer pair and returns the deviation response."""
         question = shortlisted_questions[i]
+
         try:
             correct_answer = qa_pairs[question]
-        except:
-            print(question)
-            print("Key error")
-            continue
+        except KeyError:  # More specific exception handling
+            print(f"Key error: {question}")
+            return None
+
         answer = answers[i]
         deviation_response = client.messages.create(
             model=model_name,
@@ -247,23 +260,61 @@ async def ask_ai(file_path):
             messages=[{"role": "user", "content": "Data source answer: " + answer}]
         )
 
-        print(deviation_response.content[0].text)
         deviation_response_text = deviation_response.content[0].text
-        if not ("No deviation found" in deviation_response_text or "no deviation found" in deviation_response_text):
-            ans = ans + '\n' + str(count) + ". " + deviation_response_text + '\n'
-            count = count + 1
-        input_tokens = deviation_response.usage.input_tokens
-        output_tokens = deviation_response.usage.output_tokens
-        new_cost = (input_tokens*(0.25/1000000))+ (output_tokens*(1.25/1000000))
-        total_cost = total_cost + new_cost
+        # print(deviation_response_text)
+        return deviation_response_text
+    
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(process_deviation, range(len(answers))))
+
+    # Filter out None values (in case of errors)
+    deviation_responses = [res for res in results if res is not None]
+
+    # for i in range(0, len(answers)):
+    #     # try:
+    #     question = shortlisted_questions[i]
+    #     try:
+    #         correct_answer = qa_pairs[question]
+    #     except:
+    #         print(question)
+    #         print("Key error")
+    #         continue
+    #     answer = answers[i]
+    #     deviation_response = client.messages.create(
+    #         model=model_name,
+    #         max_tokens=1024,
+    #         system=f"""For a particular question from the FIDIC redbook document
+    #         you have to analyze the answer from the data source and compare it with the 
+    #         correct answer. If there are deviations of the data source answer from the correct
+    #         answer you have to highlight the deviation. If the data source answer says answer not found
+    #         or the answer is ambiguous simply output "No deviation found" and nothing else.
+    #         Here is the FIDIC document snippet: '''{correct_answer}'''.
+    #         If the data source answer is similar to the correct answer simply output 
+    #         "No deviation found" and nothing else. Do not use the word "answer" or words "correct answer"
+    #         in your response. Just highlight the deviation.
+    #         """,
+    #         messages=[{"role": "user", "content": "Data source answer: " + answer}]
+    #     )
+
+    #     print(deviation_response.content[0].text)
+    #     deviation_response_text = deviation_response.content[0].text
+    #     if not ("No deviation found" in deviation_response_text or "no deviation found" in deviation_response_text):
+    #         ans = ans + '\n' + str(count) + ". " + deviation_response_text + '\n'
+    #         count = count + 1
+    #     input_tokens = deviation_response.usage.input_tokens
+    #     output_tokens = deviation_response.usage.output_tokens
+    #     new_cost = (input_tokens*(0.25/1000000))+ (output_tokens*(1.25/1000000))
+    #     total_cost = total_cost + new_cost
     #     # except:
     #     #     continue
     # print(ans)
+    for deviation_response_text in deviation_responses:
+        if not ("No deviation found" in deviation_response_text or "no deviation found" in deviation_response_text):
+            ans = ans + '\n' + str(count) + ". " + deviation_response_text + '\n'
+            count = count + 1
     end_time = time.time()
     print("Total time taken:")
     print(end_time - start_time)
-    print("total cost:")
-    print(total_cost)
     return ans
 
 # if __name__ == '__main__':
