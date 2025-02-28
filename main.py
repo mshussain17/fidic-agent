@@ -215,6 +215,8 @@ async def ask_ai(file_path):
     print("Shortlisted Questions:")
     print(shortlisted_questions)
     print(len(shortlisted_questions))
+    if shortlisted_questions == []:
+        return "No deviation found."
 
     start_time = time.time()
     answers = []
