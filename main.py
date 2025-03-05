@@ -194,7 +194,7 @@ async def ask_ai(file_path):
         Your output should be in the form of a python list. Output only a list and nothing else.
         Output each question as it is. Do not change the question.
         Make sure list is closed and all string literals are closed. 
-        Output a list of maximum 50 strings. DO NOT output more than 50 strings.
+        Remember to output a list of maximum 50 strings. DO NOT output more than 50 strings.
         If none of the questions are relevant to the document summary simply output an empty list [].
         """,
         messages=[{"role": "user", "content": "Document description: " + document_description}]
@@ -251,13 +251,21 @@ async def ask_ai(file_path):
             max_tokens=1024,
             system=f"""For a particular question from the FIDIC redbook document
             you have to analyze the answer from the data source and compare it with the 
-            correct answer. If there are deviations of the data source answer from the correct
+            FIDIC document snippet as correct answer. If there are deviations of the data source answer from the correct
             answer you have to highlight the deviation. If the data source answer says answer not found
             or the answer is ambiguous simply output "No deviation found" and nothing else.
             Here is the FIDIC document snippet: '''{correct_answer}'''.
-            If the data source answer is similar to the correct answer simply output 
-            "No deviation found" and nothing else. Do not use the word "answer" or words "correct answer"
-            in your response. Just highlight the deviation.
+            You should analyze both data source answer and correct answer and attach key
+            terms to it. You should attach these terms only when there is a deviation
+            from correct answer and not otherwise. The terms should be attached as follows -
+            1.) critical - If the data source answer is deviating from the correct answer in a very serious or risky case.
+            2.) moderate - If there is a major deviation of the data source answer from the correct answer. A deviation in definition or in values.
+            3.) minor - If there is a very small deviation of the data source answer from the correct answer.
+            Add the term in the beginning of your answer.
+            Remember, If the data source answer is similar to the correct answer simply output 
+            "No deviation found" and nothing else. Also, if the data source answer says "not found" 
+            or any terms is not found or mentioned you have to output "No deviation found" and nothing else.
+            Do not use the word "answer" or words "correct answer" in your response. Just highlight the deviation in case there is.
             """,
             messages=[{"role": "user", "content": "Data source answer: " + answer}]
         )
