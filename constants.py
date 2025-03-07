@@ -1,2 +1,2 @@
-model_name="claude-3-haiku-20240307"
+model_name="gpt-4o-mini"
 EMBEDDINGS_MODEL_NAME="text-embedding-3-small"
